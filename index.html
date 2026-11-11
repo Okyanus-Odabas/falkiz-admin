@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Falkız Yönetim &amp; Canlı Destek Paneli</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- LOGIN GATE -->
+  <div id="loginGate" class="login-gate">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-cup" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="44" height="44">
+            <circle cx="32" cy="32" r="30" fill="#E9DEC9" />
+            <circle cx="32" cy="32" r="22" fill="#FFFDF9" stroke="#2A1B10" stroke-width="2.5" />
+            <circle cx="32" cy="32" r="17" fill="#2A1B10" />
+            <path d="M25 27c4-4 11-3 13 2s-2 11-8 11-8-8-5-13z" fill="#523826" />
+            <circle cx="40" cy="38" r="2" fill="#7A563C" />
+          </svg>
+        </div>
+        <div>
+          <span class="eyebrow">YÖNETİCİ KONSOLU</span>
+          <h1>Falkız Panel</h1>
+        </div>
+      </div>
+      <p class="login-sub">Kullanıcı yönetimi, anında Owner ID sorgulama, jeton tanımlama ve Canlı Destek merkezi.</p>
+
+      <form id="loginForm" class="stack-md">
+        <div class="field">
+          <label for="loginIdInput">Yönetici ID</label>
+          <input id="loginIdInput" type="text" autocomplete="username" placeholder="okyanus" required />
+        </div>
+        <div class="field">
+          <label for="loginPassInput">Şifre</label>
+          <input id="loginPassInput" type="password" autocomplete="current-password" placeholder="••••••••••••" required />
+        </div>
+        <label class="checkbox-row">
+          <input id="rememberMeCheck" type="checkbox" checked />
+          <span>Bu bilgisayarda oturumu açık tut</span>
+        </label>
+        <div id="loginErrorBox" class="alert-box error hidden"></div>
+        <button id="loginSubmitBtn" type="submit" class="btn btn-gold btn-block">Panele Giriş Yap →</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP SHELL -->
+  <div id="appShell" class="app-shell hidden">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-cup sm" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="34" height="34">
+            <circle cx="32" cy="32" r="30" fill="#E9DEC9" />
+            <circle cx="32" cy="32" r="21" fill="#FFFDF9" stroke="#2A1B10" stroke-width="2.5" />
+            <circle cx="32" cy="32" r="16" fill="#2A1B10" />
+            <path d="M25 27c4-4 11-3 13 2s-2 11-8 11-8-8-5-13z" fill="#523826" />
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Falkız Admin</div>
+          <div class="brand-caption">falciteyzefirebase</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Genel Bakış</span>
+        </button>
+        <button class="nav-item" data-section="users">
+          <span class="nav-icon">🔍</span>
+          <span>Kullanıcılar &amp; Jeton</span>
+        </button>
+        <button class="nav-item" data-section="support">
+          <span class="nav-icon">🎧</span>
+          <span>Canlı Destek</span>
+          <span id="navSupportBadge" class="badge-pill hidden">0</span>
+        </button>
+        <button class="nav-item" data-section="chat">
+          <span class="nav-icon">💬</span>
+          <span>Genel Sohbet</span>
+        </button>
+        <button class="nav-item" data-section="promos">
+          <span class="nav-icon">🎁</span>
+          <span>Promosyon &amp; Mağaza</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-chip">
+          <span class="dot-online"></span>
+          <span id="adminIdentityLabel">okyanus</span>
+        </div>
+        <div class="sidebar-footer-actions">
+          <button id="openPasswordModalBtn" class="btn btn-ghost btn-sm" type="button">Şifre Değiştir</button>
+          <button id="logoutBtn" class="btn btn-danger-soft btn-sm" type="button">Çıkış</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-area">
+      <!-- TOPBAR WITH INSTANT OWNER ID SEARCH -->
+      <header class="topbar">
+        <form id="globalQuickSearchForm" class="quick-search">
+          <span class="search-icon">🔎</span>
+          <input
+            id="globalQuickSearchInput"
+            type="text"
+            placeholder="Owner ID (örn: AlKTBdf4UmMOJNxlZhRpR6iDvnk1), E-posta, İsim veya Cihaz ID yapıştırıp Enter'a basın…"
+          />
+          <button type="submit" class="btn btn-gold btn-sm">Hemen Bul</button>
+        </form>
+        <div class="topbar-right">
+          <button id="refreshAllBtn" class="btn btn-dark btn-sm" type="button">↻ Yenile</button>
+        </div>
+      </header>
+
+      <main class="content-scroll">
+        <!-- 1. DASHBOARD SECTION -->
+        <section id="section-dashboard" class="panel-section">
+          <div class="section-head">
+            <div>
+              <h2>Genel Bakış</h2>
+              <p class="muted">Sistemin anlık durumu, hızlı Owner ID jeton tanımlama ve son hareketler.</p>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card clickable" id="kpiCardSupport">
+              <div class="kpi-label">Bekleyen Destek Talebi</div>
+              <div class="kpi-value" id="kpiOpenTickets">0</div>
+              <div class="kpi-foot">Yanıt bekleyen ticketlar →</div>
+            </div>
+            <div class="kpi-card clickable" id="kpiCardUsers">
+              <div class="kpi-label">Son Aktif Kullanıcılar</div>
+              <div class="kpi-value" id="kpiRecentUsers">—</div>
+              <div class="kpi-foot">Kullanıcı listesini aç →</div>
+            </div>
+            <div class="kpi-card clickable" id="kpiCardPurchases">
+              <div class="kpi-label">Son Satın Alımlar</div>
+              <div class="kpi-value" id="kpiRecentPurchases">—</div>
+              <div class="kpi-foot">Ödeme kayıtlarını incele →</div>
+            </div>
+            <div class="kpi-card clickable" id="kpiCardPromos">
+              <div class="kpi-label">Aktif Promosyon Kodu</div>
+              <div class="kpi-value" id="kpiActivePromos">—</div>
+              <div class="kpi-foot">Kodları yönet →</div>
+            </div>
+          </div>
+
+          <!-- QUICK JETON BY OWNER ID -->
+          <div class="card cream-accent-card">
+            <div class="card-head-row">
+              <div>
+                <span class="eyebrow dark">HIZLI İŞLEM ARACI</span>
+                <h3>Owner ID ile Anında Jeton Gönder</h3>
+                <p>Firebase'de tek tek aramaya gerek kalmadan Owner ID yapıştırın, bakiyesini görün ve anında jeton + bildirim gönderin.</p>
+              </div>
+            </div>
+            <form id="dashQuickGrantForm" class="quick-grant-row">
+              <input id="dashOwnerIdInput" type="text" placeholder="Owner ID (UID) yapıştırın…" required />
+              <input id="dashJetonDeltaInput" type="number" value="25" step="1" placeholder="+Jeton" required />
+              <input id="dashGrantNoteInput" type="text" placeholder="Bildirim notu (opsiyonel, örn: Telafi jetonunuz eklendi ✨)" />
+              <button type="submit" class="btn btn-espresso">Jeton Tanımla &amp; Bildir</button>
+            </form>
+          </div>
+
+          <div class="two-col-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>🎧 Son Destek Talepleri</h3>
+                <button class="link-btn" data-goto="support" type="button">Tümünü Gör →</button>
+              </div>
+              <div id="dashRecentTickets" class="compact-list">Yükleniyor…</div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>🛡️ Son Yönetici İşlemleri</h3>
+              </div>
+              <div id="dashAdminLogs" class="compact-list">Henüz kayıt yok.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. USERS & JETON 360 INSPECTOR -->
+        <section id="section-users" class="panel-section hidden">
+          <div class="users-layout">
+            <!-- Left Search & Directory -->
+            <div class="card users-sidebar-card">
+              <h3>Kullanıcı Arama</h3>
+              <form id="userSearchForm" class="stack-sm">
+                <input id="userSearchInput" type="text" placeholder="Owner ID, e-posta, isim, cihaz ID…" />
+                <div class="row-gap-sm">
+                  <button type="submit" class="btn btn-gold btn-sm flex-1">Ara</button>
+                  <button id="loadRecentOwnersBtn" type="button" class="btn btn-dark btn-sm">Son Kayıtlar</button>
+                </div>
+              </form>
+              <div id="userSearchMeta" class="tiny-muted mt-sm">Arama yapın veya listeden bir kullanıcı seçin.</div>
+              <div id="userResultsList" class="user-results-list"></div>
+            </div>
+
+            <!-- Right 360 User Detail -->
+            <div class="users-detail-col">
+              <div id="userEmptyState" class="card empty-state-card">
+                <div class="empty-icon">🔍</div>
+                <h3>Kullanıcı Seçilmedi</h3>
+                <p class="muted">Soldaki kutuya veya üst çubuğa herhangi bir <strong>Owner ID</strong> (eski veya yeni tüm hesaplar O(1) hızında bulunur), e-posta veya kullanıcı adı yazarak tüm detayları açabilirsiniz.</p>
+              </div>
+
+              <div id="userInspectorWrap" class="stack-md hidden">
+                <!-- User Summary Header -->
+                <div class="card user-hero-card">
+                  <div class="user-hero-left">
+                    <img id="inspAvatar" class="user-avatar-lg" src="" alt="Profil" />
+                    <div>
+                      <div class="row-wrap">
+                        <h2 id="inspDisplayName">—</h2>
+                        <span id="inspVipBadge" class="pill pill-gold hidden">👑 VIP Aktif</span>
+                        <span id="inspBanBadge" class="pill pill-danger hidden">🚫 Sohbet Engelli</span>
+                      </div>
+                      <div id="inspEmail" class="muted">—</div>
+                      <div class="owner-id-bar">
+                        <code id="inspOwnerId">—</code>
+                        <button id="copyInspOwnerIdBtn" type="button" class="btn btn-ghost btn-xs">📋 Kopyala</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="user-hero-stats">
+                    <div class="stat-pill">
+                      <span class="stat-label">Mevcut Jeton</span>
+                      <span id="inspJetonCount" class="stat-num gold">0</span>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Reklam İzleme</span>
+                      <span id="inspAdCount" class="stat-num">0</span>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Toplam Fal</span>
+                      <span id="inspFortuneCount" class="stat-num">0</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 5 Inspector Tabs -->
+                <div class="subtabs" id="inspectorTabs">
+                  <button class="subtab active" data-itab="jeton" type="button">🪙 Jeton &amp; VIP</button>
+                  <button class="subtab" data-itab="profile" type="button">👤 Genel Profil</button>
+                  <button class="subtab" data-itab="purchases" type="button">💳 Satın Alımlar</button>
+                  <button class="subtab" data-itab="ads" type="button">📺 Reklamlar</button>
+                  <button class="subtab" data-itab="fortunes" type="button">🔮 Önceki Fallar</button>
+                </div>
+
+                <!-- Tab 1: Jeton & VIP -->
+                <div id="itab-jeton" class="itab-pane">
+                  <div class="two-col-grid">
+                    <div class="card">
+                      <h3>🪙 Jeton Ekle / Düzenle</h3>
+                      <p class="muted small">Hızlı butonlarla ekleyin veya özel miktar belirleyin.</p>
+                      <div class="quick-chips mt-sm">
+                        <button class="chip-btn" data-quick-jeton="5" type="button">+5</button>
+                        <button class="chip-btn" data-quick-jeton="10" type="button">+10</button>
+                        <button class="chip-btn" data-quick-jeton="25" type="button">+25</button>
+                        <button class="chip-btn" data-quick-jeton="50" type="button">+50</button>
+                        <button class="chip-btn" data-quick-jeton="100" type="button">+100</button>
+                        <button class="chip-btn" data-quick-jeton="250" type="button">+250</button>
+                        <button class="chip-btn" data-quick-jeton="500" type="button">+500</button>
+                      </div>
+
+                      <form id="customJetonForm" class="stack-sm mt-md">
+                        <div class="row-gap-sm">
+                          <select id="jetonOpMode" class="select-sm">
+                            <option value="delta">Ekle / Düş (+/-)</option>
+                            <option value="exact">Tam Bakiyeyi Sabitle (=)</option>
+                          </select>
+                          <input id="customJetonAmount" type="number" value="25" required />
+                        </div>
+                        <input id="customJetonNote" type="text" placeholder="Kullanıcıya gidecek bildirim mesajı (örn: Eksik 25 jetonunuz tanımlandı ✨)" />
+                        <label class="checkbox-row">
+                          <input id="sendGiftPushCheck" type="checkbox" checked />
+                          <span>Kullanıcıya uygulama içi bildirim gönder</span>
+                        </label>
+                        <button type="submit" class="btn btn-gold">Uygula</button>
+                      </form>
+                    </div>
+
+                    <div class="card stack-md">
+                      <div>
+                        <h3>👑 VIP Premium &amp; Moderasyon</h3>
+                        <p id="inspVipDetailText" class="muted small">VIP durumu kontrol ediliyor…</p>
+                        <div class="quick-chips mt-sm">
+                          <button class="chip-btn" data-vip-days="7" type="button">+7 Gün VIP</button>
+                          <button class="chip-btn" data-vip-days="30" type="button">+30 Gün VIP</button>
+                          <button class="chip-btn" data-vip-days="90" type="button">+90 Gün VIP</button>
+                          <button class="chip-btn danger" data-vip-days="0" type="button">VIP Kaldır</button>
+                        </div>
+                      </div>
+
+                      <hr class="divider" />
+
+                      <div>
+                        <h4>Rozetler &amp; Sohbet Yetkisi</h4>
+                        <div class="row-wrap mt-sm">
+                          <button id="toggleGoldBadgeBtn" type="button" class="btn btn-dark btn-sm">✨ Gold Rozet</button>
+                          <button id="toggleDevBadgeBtn" type="button" class="btn btn-dark btn-sm">🛠️ Developer Rozet</button>
+                          <button id="toggleBanUserBtn" type="button" class="btn btn-danger-soft btn-sm">🚫 Sohbetten Yasakla</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tab 2: Profile & Sub-profiles -->
+                <div id="itab-profile" class="itab-pane hidden">
+                  <div class="card">
+                    <h3>Hesap &amp; Cihaz Bilgileri (owners)</h3>
+                    <div id="inspOwnerKeyGrid" class="kv-grid mt-sm"></div>
+                    <details class="raw-json-box mt-md">
+                      <summary>Ham Firestore Belgesini Gör (JSON)</summary>
+                      <pre id="inspRawJson"></pre>
+                    </details>
+                  </div>
+                  <div class="card mt-md">
+                    <h3>Kayıtlı Fal Profilleri (users)</h3>
+                    <div id="inspSubProfilesList" class="subprofiles-grid mt-sm"></div>
+                  </div>
+                </div>
+
+                <!-- Tab 3: Purchases & Promo Redemptions -->
+                <div id="itab-purchases" class="itab-pane hidden">
+                  <div class="card">
+                    <h3>💳 Google Play Satın Alımları</h3>
+                    <div id="inspPurchasesTableWrap" class="table-wrap mt-sm"></div>
+                  </div>
+                  <div class="two-col-grid mt-md">
+                    <div class="card">
+                      <h3>🎁 Kullanılan Promosyon Kodları</h3>
+                      <div id="inspUsedPromosWrap" class="compact-list mt-sm"></div>
+                    </div>
+                    <div class="card">
+                      <h3>🛡️ Bu Kullanıcıya Yapılan Admin İşlemleri</h3>
+                      <div id="inspAdminHistoryWrap" class="compact-list mt-sm"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tab 4: Rewarded Ads -->
+                <div id="itab-ads" class="itab-pane hidden">
+                  <div class="card">
+                    <h3>📺 Ödüllü Reklam İzleme Geçmişi</h3>
+                    <div id="inspAdsSummary" class="row-wrap mt-sm"></div>
+                    <div id="inspAdsTableWrap" class="table-wrap mt-md"></div>
+                  </div>
+                </div>
+
+                <!-- Tab 5: Past Fortunes -->
+                <div id="itab-fortunes" class="itab-pane hidden">
+                  <div class="card">
+                    <div class="card-header">
+                      <h3>🔮 Kullanıcının Önceki Falları</h3>
+                      <select id="fortuneTypeFilter" class="select-sm">
+                        <option value="all">Tüm Fal Türleri</option>
+                        <option value="kahve">Kahve Falı</option>
+                        <option value="el">El Falı</option>
+                        <option value="tarot">Tarot</option>
+                        <option value="ruya">Rüya Tabiri</option>
+                        <option value="burc">Günlük Burç</option>
+                        <option value="sinastri">Aşk Uyumu</option>
+                        <option value="cin">Sihirli Lamba (Cin)</option>
+                        <option value="yuz">Yüz Falı</option>
+                        <option value="aura">Aura Okuma</option>
+                        <option value="ayak">Ayak Falı</option>
+                      </select>
+                    </div>
+                    <div id="inspFortunesList" class="fortunes-list mt-sm"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. LIVE SUPPORT DESK (CANLI DESTEK) -->
+        <section id="section-support" class="panel-section hidden">
+          <div class="support-desk">
+            <!-- Left Ticket Queue -->
+            <div class="card support-list-pane">
+              <div class="card-header">
+                <h3>🎧 Destek Talepleri</h3>
+              </div>
+              <div class="filter-tabs" id="ticketFilterTabs">
+                <button class="ftab active" data-tfilter="open" type="button">Bekleyen</button>
+                <button class="ftab" data-tfilter="replied" type="button">Yanıtlandı</button>
+                <button class="ftab" data-tfilter="resolved" type="button">Çözüldü</button>
+                <button class="ftab" data-tfilter="all" type="button">Tümü</button>
+              </div>
+              <input id="ticketSearchInput" class="mt-sm" type="text" placeholder="Ticketlarda ara (isim, mail, Owner ID)…" />
+              <div id="supportTicketsList" class="ticket-queue-list mt-sm">Yükleniyor…</div>
+            </div>
+
+            <!-- Right Active Conversation & Quick Actions -->
+            <div class="card support-thread-pane">
+              <div id="supportEmptyThread" class="empty-state-inner">
+                <div class="empty-icon">💬</div>
+                <h3>Bir Destek Talebi Seçin</h3>
+                <p class="muted">Soldan bir talep seçtiğinizde kullanıcının mevcut jetonunu görebilir, tek tıkla jeton tanımlayabilir ve doğrudan uygulamasına bildirim düşen yanıt gönderebilirsiniz.</p>
+              </div>
+
+              <div id="supportActiveThread" class="thread-container hidden">
+                <!-- Ticket User Context Header -->
+                <div class="thread-top-bar">
+                  <div>
+                    <div class="row-wrap">
+                      <strong id="thUserName">—</strong>
+                      <span id="thCategoryPill" class="pill">—</span>
+                      <span id="thStatusPill" class="pill">—</span>
+                    </div>
+                    <div class="tiny-muted mt-xs">
+                      Owner ID: <code id="thOwnerId">—</code>
+                      <button id="thCopyOwnerBtn" class="btn-inline-link" type="button">Kopyala</button>
+                      · E-posta: <span id="thUserEmail">—</span>
+                      · Bakiye: <strong id="thLiveJeton" class="gold-text">—</strong> Jeton
+                      · Cihaz: <span id="thDeviceMeta">—</span>
+                    </div>
+                  </div>
+                  <div class="row-wrap">
+                    <button id="thQuickJetonBtn" class="btn btn-gold btn-xs" type="button">⚡ +Jeton Tanımla</button>
+                    <button id="thOpenUserBtn" class="btn btn-dark btn-xs" type="button">🔍 Tam Profil</button>
+                    <button id="thResolveBtn" class="btn btn-ghost btn-xs" type="button">✅ Çözüldü</button>
+                  </div>
+                </div>
+
+                <!-- Inline Quick Jeton Drawer inside Ticket -->
+                <div id="thInlineJetonBar" class="inline-jeton-bar hidden">
+                  <span>Hızlı Jeton Ekle:</span>
+                  <input id="thQuickJetonAmount" type="number" value="25" />
+                  <button id="thConfirmQuickJetonBtn" class="btn btn-gold btn-xs" type="button">Tanımla &amp; Bildir</button>
+                  <button id="thCancelQuickJetonBtn" class="btn btn-ghost btn-xs" type="button">Kapat</button>
+                </div>
+
+                <!-- Messages Scroll -->
+                <div id="thMessagesBox" class="thread-messages"></div>
+
+                <!-- Canned Quick Replies & Reply Form -->
+                <div class="thread-composer">
+                  <div class="canned-row">
+                    <button type="button" class="canned-chip" data-canned="Merhaba! Eksik jetonunuz hesabınıza tanımlanmıştır, keyifli fallar dileriz ✨">✨ Jeton Tanımlandı</button>
+                    <button type="button" class="canned-chip" data-canned="Merhaba, bildiriminiz için teşekkür ederiz. Ekibimiz kontrol edip hemen çözüme kavuşturacaktır ☕">☕ İnceleniyor</button>
+                    <button type="button" class="canned-chip" data-canned="Sorununuz çözülmüştür. Başka bir konuda yardıma ihtiyacınız olursa buradan yazabilirsiniz 💛">💛 Sorun Çözüldü</button>
+                  </div>
+                  <form id="ticketReplyForm" class="reply-input-row">
+                    <textarea id="ticketReplyInput" rows="2" placeholder="Yanıtınızı yazın… (Gönderdiğiniz anda kullanıcının telefonuna bildirim gider)" required></textarea>
+                    <button id="ticketReplySubmitBtn" type="submit" class="btn btn-gold">Yanıt Gönder 🔔</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. GLOBAL CHAT MODERATION -->
+        <section id="section-chat" class="panel-section hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>💬 Genel Sohbet Canlı Moderasyon</h3>
+                <p class="muted small">Uygulamadaki son 60 genel sohbet mesajını canlı izleyin, uygunsuz mesajı silin veya kullanıcıyı inceleyin.</p>
+              </div>
+            </div>
+            <div id="globalChatAdminList" class="chat-mod-list mt-md">Yükleniyor…</div>
+          </div>
+        </section>
+
+        <!-- 5. PROMO CODES & GLOBAL PURCHASES -->
+        <section id="section-promos" class="panel-section hidden">
+          <div class="two-col-grid">
+            <div class="card">
+              <h3>🎁 Yeni Promosyon Kodu Oluştur</h3>
+              <form id="createPromoForm" class="stack-sm mt-sm">
+                <div class="field">
+                  <label>Promosyon Kodu (Büyük Harf)</label>
+                  <input id="promoCodeNameInput" type="text" placeholder="Örn: FALKIZ50" required />
+                </div>
+                <div class="row-gap-sm">
+                  <div class="field flex-1">
+                    <label>Verilecek Jeton</label>
+                    <input id="promoJetonInput" type="number" value="25" min="1" required />
+                  </div>
+                  <div class="field flex-1">
+                    <label>Toplam Kullanım Limiti</label>
+                    <input id="promoLimitInput" type="number" value="100" min="1" required />
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-gold">Kodu Kaydet &amp; Aktif Et</button>
+              </form>
+
+              <h3 class="mt-lg">Mevcut Promosyon Kodları</h3>
+              <div id="promoCodesListWrap" class="table-wrap mt-sm">Yükleniyor…</div>
+            </div>
+
+            <div class="card">
+              <h3>💳 Tüm Uygulama Son Satın Alımları</h3>
+              <p class="muted small">Tüm kullanıcılardan gerçekleşen son Google Play satın alımları.</p>
+              <div id="globalPurchasesWrap" class="table-wrap mt-sm">Yükleniyor…</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- FORTUNE / PHOTO DETAIL MODAL -->
+  <div id="detailModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="detailModalTitle">Detay</h3>
+        <button id="closeDetailModalBtn" class="btn btn-ghost btn-xs" type="button">✕ Kapat</button>
+      </div>
+      <div id="detailModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- CHANGE PASSWORD MODAL -->
+  <div id="passwordModal" class="modal-backdrop hidden">
+    <div class="modal-card sm">
+      <div class="modal-header">
+        <h3>🔐 Yönetici Şifresini Değiştir</h3>
+        <button id="closePasswordModalBtn" class="btn btn-ghost btn-xs" type="button">✕</button>
+      </div>
+      <form id="changePasswordForm" class="stack-sm mt-sm">
+        <div class="field">
+          <label>Mevcut Şifre</label>
+          <input id="curPassInput" type="password" required />
+        </div>
+        <div class="field">
+          <label>Yeni Şifre (En az 6 karakter)</label>
+          <input id="newPassInput" type="password" minlength="6" required />
+        </div>
+        <button type="submit" class="btn btn-gold btn-block">Şifreyi Güncelle</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastStack" class="toast-stack"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
