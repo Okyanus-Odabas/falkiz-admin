@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2.1" />
 </head>
 <body>
   <!-- LOGIN GATE -->
@@ -28,7 +28,7 @@
           <h1>Falkız Panel</h1>
         </div>
       </div>
-      <p class="login-sub">Kullanıcı yönetimi, anında Owner ID sorgulama, jeton tanımlama ve Canlı Destek merkezi.</p>
+      <p class="login-sub">Canlı fal akışı, aktif kullanıcı takibi, anında Owner ID sorgulama, jeton tanımlama ve Canlı Destek merkezi.</p>
 
       <form id="loginForm" class="stack-md">
         <div class="field">
@@ -69,24 +69,29 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-section="dashboard">
+        <button class="nav-item active" data-section="dashboard" type="button">
           <span class="nav-icon">📊</span>
           <span>Genel Bakış</span>
         </button>
-        <button class="nav-item" data-section="users">
-          <span class="nav-icon">🔍</span>
+        <button class="nav-item" data-section="fortunes" type="button">
+          <span class="nav-icon">🔮</span>
+          <span>Canlı Fal Akışı</span>
+          <span class="live-dot-badge" title="Canlı Akış">CANLI</span>
+        </button>
+        <button class="nav-item" data-section="users" type="button">
+          <span class="nav-icon">👥</span>
           <span>Kullanıcılar &amp; Jeton</span>
         </button>
-        <button class="nav-item" data-section="support">
+        <button class="nav-item" data-section="support" type="button">
           <span class="nav-icon">🎧</span>
           <span>Canlı Destek</span>
           <span id="navSupportBadge" class="badge-pill hidden">0</span>
         </button>
-        <button class="nav-item" data-section="chat">
+        <button class="nav-item" data-section="chat" type="button">
           <span class="nav-icon">💬</span>
           <span>Genel Sohbet</span>
         </button>
-        <button class="nav-item" data-section="promos">
+        <button class="nav-item" data-section="promos" type="button">
           <span class="nav-icon">🎁</span>
           <span>Promosyon &amp; Mağaza</span>
         </button>
@@ -113,7 +118,7 @@
           <input
             id="globalQuickSearchInput"
             type="text"
-            placeholder="Owner ID (örn: AlKTBdf4UmMOJNxlZhRpR6iDvnk1), E-posta, İsim veya Cihaz ID yapıştırıp Enter'a basın…"
+            placeholder="Owner ID (örn: wXe126KKoTbHopeuAZbFhMXQXPx2), E-posta, İsim veya Cihaz ID yapıştırıp Enter'a basın…"
           />
           <button type="submit" class="btn btn-gold btn-sm">Hemen Bul</button>
         </form>
@@ -128,30 +133,57 @@
           <div class="section-head">
             <div>
               <h2>Genel Bakış</h2>
-              <p class="muted">Sistemin anlık durumu, hızlı Owner ID jeton tanımlama ve son hareketler.</p>
+              <p class="muted">En son fal baktıranlar, uygulamayı aktif kullananlar, hızlı jeton gönderimi ve canlı istatistikler.</p>
             </div>
           </div>
 
           <div class="kpi-grid">
+            <div class="kpi-card clickable" id="kpiCardUsers">
+              <div class="kpi-label">Toplam Kayıtlı Kullanıcı</div>
+              <div class="kpi-value" id="kpiRecentUsers">—</div>
+              <div class="kpi-foot" id="kpiUsersFoot">Son aktif kullanıcıları gör →</div>
+            </div>
+            <div class="kpi-card clickable" id="kpiCardFortunes">
+              <div class="kpi-label">Toplam Bakılan Fal</div>
+              <div class="kpi-value" id="kpiTotalFortunes">—</div>
+              <div class="kpi-foot" id="kpiFortunesFoot">Canlı fal akışını aç →</div>
+            </div>
             <div class="kpi-card clickable" id="kpiCardSupport">
               <div class="kpi-label">Bekleyen Destek Talebi</div>
               <div class="kpi-value" id="kpiOpenTickets">0</div>
               <div class="kpi-foot">Yanıt bekleyen ticketlar →</div>
             </div>
-            <div class="kpi-card clickable" id="kpiCardUsers">
-              <div class="kpi-label">Son Aktif Kullanıcılar</div>
-              <div class="kpi-value" id="kpiRecentUsers">—</div>
-              <div class="kpi-foot">Kullanıcı listesini aç →</div>
-            </div>
-            <div class="kpi-card clickable" id="kpiCardPurchases">
-              <div class="kpi-label">Son Satın Alımlar</div>
-              <div class="kpi-value" id="kpiRecentPurchases">—</div>
-              <div class="kpi-foot">Ödeme kayıtlarını incele →</div>
-            </div>
             <div class="kpi-card clickable" id="kpiCardPromos">
               <div class="kpi-label">Aktif Promosyon Kodu</div>
               <div class="kpi-value" id="kpiActivePromos">—</div>
-              <div class="kpi-foot">Kodları yönet →</div>
+              <div class="kpi-foot" id="kpiPromosFoot">Promosyon &amp; mağazayı aç →</div>
+            </div>
+          </div>
+
+          <!-- LIVE ACTIVITY DUAL FEED ON DASHBOARD -->
+          <div class="two-col-grid">
+            <div class="card live-panel-card">
+              <div class="card-header">
+                <div class="row-wrap">
+                  <span class="pulse-dot"></span>
+                  <h3>🔮 En Son Fal Baktıranlar</h3>
+                </div>
+                <button class="link-btn" data-goto="fortunes" type="button">Tüm Canlı Akış →</button>
+              </div>
+              <p class="tiny-muted mt-xs">Uygulamada şu an bakılan fallar gerçek zamanlı olarak düşer.</p>
+              <div id="dashLiveFortunes" class="compact-list mt-sm">Yükleniyor…</div>
+            </div>
+
+            <div class="card live-panel-card">
+              <div class="card-header">
+                <div class="row-wrap">
+                  <span class="pulse-dot amber"></span>
+                  <h3>🔥 En Son Uygulamayı Kullananlar</h3>
+                </div>
+                <button class="link-btn" data-goto="users" type="button">Tüm Aktifler →</button>
+              </div>
+              <p class="tiny-muted mt-xs">Fal, reklam, çark, sohbet ve uygulama girişlerine göre en son aktif kişiler.</p>
+              <div id="dashRecentActiveUsers" class="compact-list mt-sm">Yükleniyor…</div>
             </div>
           </div>
 
@@ -178,41 +210,87 @@
                 <h3>🎧 Son Destek Talepleri</h3>
                 <button class="link-btn" data-goto="support" type="button">Tümünü Gör →</button>
               </div>
-              <div id="dashRecentTickets" class="compact-list">Yükleniyor…</div>
+              <div id="dashRecentTickets" class="compact-list mt-sm">Yükleniyor…</div>
             </div>
 
             <div class="card">
               <div class="card-header">
                 <h3>🛡️ Son Yönetici İşlemleri</h3>
               </div>
-              <div id="dashAdminLogs" class="compact-list">Henüz kayıt yok.</div>
+              <div id="dashAdminLogs" class="compact-list mt-sm">Henüz kayıt yok.</div>
             </div>
           </div>
         </section>
 
-        <!-- 2. USERS & JETON 360 INSPECTOR -->
+        <!-- 2. LIVE FORTUNES FEED SECTION (CANLI FAL AKIŞI) -->
+        <section id="section-fortunes" class="panel-section hidden">
+          <div class="card">
+            <div class="card-header wrap-mobile">
+              <div>
+                <div class="row-wrap">
+                  <span class="pulse-dot"></span>
+                  <h2>🔮 Canlı Fal Akışı</h2>
+                  <span id="liveFortunesCountPill" class="pill pill-gold">Canlı</span>
+                </div>
+                <p class="muted small mt-xs">En son kim hangi falı baktırmış, ne sormuş, hangi fotoğrafları göndermiş anlık izleyin ve tek tıkla profilini açın.</p>
+              </div>
+              <div class="live-feed-search-wrap">
+                <input id="liveFortuneSearchInput" type="text" placeholder="İsim, Owner ID veya fal içeriğinde ara…" />
+              </div>
+            </div>
+
+            <div class="fortune-filter-bar mt-md" id="liveFortuneTypeTabs">
+              <button class="chip-tab active" data-lftype="all" type="button">Tümü</button>
+              <button class="chip-tab" data-lftype="kahve" type="button">☕ Kahve Falı</button>
+              <button class="chip-tab" data-lftype="el" type="button">✋ El Falı</button>
+              <button class="chip-tab" data-lftype="tarot" type="button">🃏 Tarot</button>
+              <button class="chip-tab" data-lftype="cin" type="button">🪔 Sihirli Lamba</button>
+              <button class="chip-tab" data-lftype="sinastri" type="button">❤️ Aşk Uyumu</button>
+              <button class="chip-tab" data-lftype="ruya" type="button">🌙 Rüya Tabiri</button>
+              <button class="chip-tab" data-lftype="yuz" type="button">🪞 Yüz / Aura</button>
+              <button class="chip-tab" data-lftype="burc" type="button">♈ Burç / Diğer</button>
+            </div>
+          </div>
+
+          <div id="liveFortunesGrid" class="live-fortunes-grid">Yükleniyor…</div>
+        </section>
+
+        <!-- 3. USERS & JETON 360 INSPECTOR -->
         <section id="section-users" class="panel-section hidden">
           <div class="users-layout">
-            <!-- Left Search & Directory -->
+            <!-- Left Search & Smart Directory -->
             <div class="card users-sidebar-card">
-              <h3>Kullanıcı Arama</h3>
-              <form id="userSearchForm" class="stack-sm">
-                <input id="userSearchInput" type="text" placeholder="Owner ID, e-posta, isim, cihaz ID…" />
-                <div class="row-gap-sm">
-                  <button type="submit" class="btn btn-gold btn-sm flex-1">Ara</button>
-                  <button id="loadRecentOwnersBtn" type="button" class="btn btn-dark btn-sm">Son Kayıtlar</button>
+              <div class="card-header">
+                <h3>Kullanıcı Rehberi</h3>
+                <button id="reloadUserDirBtn" type="button" class="btn btn-ghost btn-xs" title="Listeyi Yenile">↻ Yenile</button>
+              </div>
+
+              <form id="userSearchForm" class="stack-sm mt-sm">
+                <div class="search-with-clear">
+                  <input id="userSearchInput" type="text" placeholder="İsim, e-posta, Owner ID, cihaz ID…" />
+                  <button id="clearUserSearchBtn" type="button" class="clear-input-btn hidden" title="Aramayı Temizle">✕</button>
                 </div>
+                <button type="submit" class="btn btn-gold btn-sm btn-block">🔎 Kullanıcı Ara</button>
               </form>
-              <div id="userSearchMeta" class="tiny-muted mt-sm">Arama yapın veya listeden bir kullanıcı seçin.</div>
+
+              <!-- 4 Smart Directory Filter Tabs -->
+              <div class="dir-mode-tabs mt-sm" id="userDirectoryTabs">
+                <button class="dtab active" data-udir="active" type="button">🔥 Son Kullananlar</button>
+                <button class="dtab" data-udir="fortunes" type="button">🔮 Son Fal Baktıran</button>
+                <button class="dtab" data-udir="newest" type="button">🆕 Yeni Kayıtlar</button>
+                <button class="dtab" data-udir="vip" type="button">👑 VIP &amp; Jeton</button>
+              </div>
+
+              <div id="userSearchMeta" class="tiny-muted mt-sm">Son aktif kullanıcılar yükleniyor…</div>
               <div id="userResultsList" class="user-results-list"></div>
             </div>
 
             <!-- Right 360 User Detail -->
             <div class="users-detail-col">
               <div id="userEmptyState" class="card empty-state-card">
-                <div class="empty-icon">🔍</div>
-                <h3>Kullanıcı Seçilmedi</h3>
-                <p class="muted">Soldaki kutuya veya üst çubuğa herhangi bir <strong>Owner ID</strong> (eski veya yeni tüm hesaplar O(1) hızında bulunur), e-posta veya kullanıcı adı yazarak tüm detayları açabilirsiniz.</p>
+                <div class="empty-icon">👥</div>
+                <h3>Kullanıcı Yükleniyor veya Seçilmedi</h3>
+                <p class="muted">Soldaki <strong>Son Kullananlar</strong> veya <strong>Son Fal Baktıran</strong> sekmesinden bir kişiye tıklayın ya da arama kutusuna isim / e-posta / Owner ID yazın.</p>
               </div>
 
               <div id="userInspectorWrap" class="stack-md hidden">
@@ -226,7 +304,8 @@
                         <span id="inspVipBadge" class="pill pill-gold hidden">👑 VIP Aktif</span>
                         <span id="inspBanBadge" class="pill pill-danger hidden">🚫 Sohbet Engelli</span>
                       </div>
-                      <div id="inspEmail" class="muted">—</div>
+                      <div id="inspEmail" class="muted small">—</div>
+                      <div id="inspLastActivityLine" class="insp-activity-line">—</div>
                       <div class="owner-id-bar">
                         <code id="inspOwnerId">—</code>
                         <button id="copyInspOwnerIdBtn" type="button" class="btn btn-ghost btn-xs">📋 Kopyala</button>
@@ -242,7 +321,7 @@
                       <span class="stat-label">Reklam İzleme</span>
                       <span id="inspAdCount" class="stat-num">0</span>
                     </div>
-                    <div class="stat-pill">
+                    <div class="stat-pill clickable-stat" id="inspFortuneStatPill" title="Önceki fallarını aç">
                       <span class="stat-label">Toplam Fal</span>
                       <span id="inspFortuneCount" class="stat-num">0</span>
                     </div>
@@ -252,10 +331,10 @@
                 <!-- 5 Inspector Tabs -->
                 <div class="subtabs" id="inspectorTabs">
                   <button class="subtab active" data-itab="jeton" type="button">🪙 Jeton &amp; VIP</button>
+                  <button class="subtab" data-itab="fortunes" type="button">🔮 Önceki Fallar</button>
                   <button class="subtab" data-itab="profile" type="button">👤 Genel Profil</button>
                   <button class="subtab" data-itab="purchases" type="button">💳 Satın Alımlar</button>
                   <button class="subtab" data-itab="ads" type="button">📺 Reklamlar</button>
-                  <button class="subtab" data-itab="fortunes" type="button">🔮 Önceki Fallar</button>
                 </div>
 
                 <!-- Tab 1: Jeton & VIP -->
@@ -365,18 +444,18 @@
                   <div class="card">
                     <div class="card-header">
                       <h3>🔮 Kullanıcının Önceki Falları</h3>
-                      <select id="fortuneTypeFilter" class="select-sm">
+                      <select id="fortuneTypeFilter" class="select-sm" style="width:auto;min-width:180px;">
                         <option value="all">Tüm Fal Türleri</option>
-                        <option value="kahve">Kahve Falı</option>
-                        <option value="el">El Falı</option>
-                        <option value="tarot">Tarot</option>
-                        <option value="ruya">Rüya Tabiri</option>
-                        <option value="burc">Günlük Burç</option>
-                        <option value="sinastri">Aşk Uyumu</option>
-                        <option value="cin">Sihirli Lamba (Cin)</option>
-                        <option value="yuz">Yüz Falı</option>
-                        <option value="aura">Aura Okuma</option>
-                        <option value="ayak">Ayak Falı</option>
+                        <option value="kahve">☕ Kahve Falı</option>
+                        <option value="el">✋ El Falı</option>
+                        <option value="tarot">🃏 Tarot</option>
+                        <option value="cin">🪔 Sihirli Lamba (Cin)</option>
+                        <option value="sinastri">❤️ Aşk Uyumu</option>
+                        <option value="ruya">🌙 Rüya Tabiri</option>
+                        <option value="burc">♈ Günlük Burç</option>
+                        <option value="yuz">🪞 Yüz Falı</option>
+                        <option value="aura">✨ Aura Okuma</option>
+                        <option value="ayak">🦶 Ayak Falı</option>
                       </select>
                     </div>
                     <div id="inspFortunesList" class="fortunes-list mt-sm"></div>
@@ -387,7 +466,7 @@
           </div>
         </section>
 
-        <!-- 3. LIVE SUPPORT DESK (CANLI DESTEK) -->
+        <!-- 4. LIVE SUPPORT DESK (CANLI DESTEK) -->
         <section id="section-support" class="panel-section hidden">
           <div class="support-desk">
             <!-- Left Ticket Queue -->
@@ -465,7 +544,7 @@
           </div>
         </section>
 
-        <!-- 4. GLOBAL CHAT MODERATION -->
+        <!-- 5. GLOBAL CHAT MODERATION -->
         <section id="section-chat" class="panel-section hidden">
           <div class="card">
             <div class="card-header">
@@ -478,7 +557,7 @@
           </div>
         </section>
 
-        <!-- 5. PROMO CODES & GLOBAL PURCHASES -->
+        <!-- 6. PROMO CODES & GLOBAL PURCHASES -->
         <section id="section-promos" class="panel-section hidden">
           <div class="two-col-grid">
             <div class="card">
@@ -551,6 +630,6 @@
   <!-- TOAST CONTAINER -->
   <div id="toastStack" class="toast-stack"></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=2.1"></script>
 </body>
 </html>
