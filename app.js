@@ -28,6 +28,7 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  runTransaction,
   increment,
   serverTimestamp,
   Timestamp
@@ -679,6 +680,11 @@ function renderLiveFortunesSection() {
             <div class="row-wrap">
               <button class="btn btn-dark btn-xs" data-lf-read="${idx}" type="button">📖 Tam Yorumu Gör</button>
               <button class="btn btn-gold btn-xs" data-lf-inspect="${escapeHtml(f.ownerId || "")}" type="button">👤 Kullanıcı &amp; Jeton</button>
+              ${
+                isProc
+                  ? `<button class="btn btn-danger btn-xs" data-lf-refund="${idx}" type="button">🔄 İade Et &amp; Temizle</button>`
+                  : ""
+              }
             </div>
             <span class="tiny-muted" style="cursor:pointer" data-lf-copy="${escapeHtml(f.ownerId || "")}" title="Kopyalamak için tıklayın">
               📋 <code>${escapeHtml((f.ownerId || "—").slice(0, 14))}…</code> · ${escapeHtml(formatTs(f.timestamp))}
@@ -717,6 +723,55 @@ function renderLiveFortunesSection() {
   grid.querySelectorAll("[data-lf-copy]").forEach((el) => {
     el.addEventListener("click", () => {
       if (el.dataset.lfCopy) copyText(el.dataset.lfCopy, "Owner ID kopyalandı");
+    });
+  });
+
+  grid.querySelectorAll("[data-lf-refund]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const f = filtered[Number(btn.dataset.lfRefund)];
+      if (!f || !f.id) return;
+      const refundAmt = typeof f.chargedJeton === "number" && f.chargedJeton > 0 ? f.chargedJeton : 4;
+      const ok = window.confirm(
+        `${f.userName || f.ownerId} kullanıcısının askıda kalan fal kaydı (${f.id}) silinecek ve hesabına +${refundAmt} Jeton iade edilecek. Onaylıyor musunuz?`
+      );
+      if (!ok) return;
+      btn.disabled = true;
+      try {
+        await runTransaction(db, async (tx) => {
+          const fRef = doc(db, "fortunes", f.id);
+          const snap = await tx.get(fRef);
+          if (!snap.exists()) return;
+          const d = snap.data() || {};
+          if (d.status === "completed" || d.refunded === true) {
+            throw new Error("Bu fal zaten tamamlanmış veya daha önce iade edilmiş.");
+          }
+          if (f.ownerId) {
+            const oRef = doc(db, "owners", f.ownerId);
+            tx.set(
+              oRef,
+              {
+                jeton: increment(refundAmt),
+                lastAdminGiftAt: Date.now(),
+                lastAdminGiftMessage: `Yarım kalan falınızın +${refundAmt} jetonu hesabınıza iade edildi ✨`
+              },
+              { merge: true }
+            );
+          }
+          tx.delete(fRef);
+        });
+        await addDoc(collection(db, "admin_logs"), {
+          action: "refund_stuck_fortune",
+          targetOwnerId: f.ownerId || "",
+          fortuneId: f.id,
+          deltaJeton: refundAmt,
+          adminEmail: currentUser?.email || "",
+          createdAt: Date.now()
+        });
+        showToast(`+${refundAmt} Jeton iade edildi ve askıdaki kayıt temizlendi.`);
+      } catch (err) {
+        showToast(err.message || "İade işlemi başarısız oldu.", "error");
+        btn.disabled = false;
+      }
     });
   });
 }
