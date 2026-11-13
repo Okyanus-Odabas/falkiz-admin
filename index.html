@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=2.1" />
+  <link rel="stylesheet" href="styles.css?v=2.2" />
 </head>
 <body>
   <!-- LOGIN GATE -->
@@ -90,6 +90,7 @@
         <button class="nav-item" data-section="chat" type="button">
           <span class="nav-icon">💬</span>
           <span>Genel Sohbet</span>
+          <span class="live-dot-badge" title="Canlı Genel Sohbet">CANLI</span>
         </button>
         <button class="nav-item" data-section="promos" type="button">
           <span class="nav-icon">🎁</span>
@@ -544,16 +545,106 @@
           </div>
         </section>
 
-        <!-- 5. GLOBAL CHAT MODERATION -->
+        <!-- 5. GLOBAL CHAT LIVE ROOM & ADMIN BROADCAST CONSOLE -->
         <section id="section-chat" class="panel-section hidden">
-          <div class="card">
-            <div class="card-header">
+          <div class="card global-chat-console">
+            <!-- Top Header & Search -->
+            <div class="chat-console-header">
               <div>
-                <h3>💬 Genel Sohbet Canlı Moderasyon</h3>
-                <p class="muted small">Uygulamadaki son 60 genel sohbet mesajını canlı izleyin, uygunsuz mesajı silin veya kullanıcıyı inceleyin.</p>
+                <div class="row-wrap">
+                  <span class="pulse-dot"></span>
+                  <h3>💬 Canlı Genel Sohbet &amp; Yönetici Mesaj Merkezi</h3>
+                  <span id="globalChatCountPill" class="pill pill-gold">Canlı</span>
+                </div>
+                <p class="muted small mt-xs">Uygulamadaki canlı sohbeti anlık izleyin, mesajları yanıtlayın, tepki bırakın veya doğrudan <strong>Yönetici</strong> kimliğiyle sohbete yazın.</p>
+              </div>
+              <div class="chat-header-tools">
+                <input id="globalChatSearchInput" type="text" placeholder="İsim, Owner ID veya mesajda ara…" />
+                <button id="scrollChatBottomBtn" class="btn btn-dark btn-xs" type="button" title="En son mesaja in">↓ En Alta İn</button>
               </div>
             </div>
-            <div id="globalChatAdminList" class="chat-mod-list mt-md">Yükleniyor…</div>
+
+            <!-- Scrollable Live Messages Stream -->
+            <div id="globalChatAdminList" class="global-chat-stream">Yükleniyor…</div>
+
+            <!-- Admin Identity & Message Composer Dock -->
+            <div class="admin-chat-composer">
+              <!-- Sender Identity Configuration Bar -->
+              <div class="admin-identity-bar">
+                <div class="identity-left">
+                  <img
+                    id="adminChatAvatarPreview"
+                    class="admin-chat-avatar"
+                    src="https://firebasestorage.googleapis.com/v0/b/falciteyzefirebase.firebasestorage.app/o/profile_images%2Ffalkiz_official_admin.webp?alt=media&amp;token=falkiz-official-admin-avatar-v2"
+                    alt="Falkız"
+                  />
+                  <div class="identity-name-wrap">
+                    <span class="tiny-muted">Görünen Yönetici Adı:</span>
+                    <input id="adminChatSenderNameInput" type="text" maxlength="32" value="Falkız Yönetici" />
+                  </div>
+                  <div class="identity-presets">
+                    <button type="button" class="canned-chip" data-name-preset="Falkız Yönetici">👑 Falkız Yönetici</button>
+                    <button type="button" class="canned-chip" data-name-preset="Falkız Ekibi">🔮 Falkız Ekibi</button>
+                    <button type="button" class="canned-chip" data-name-preset="Okyanus • Kurucu">✨ Okyanus • Kurucu</button>
+                  </div>
+                </div>
+                <div class="identity-badges">
+                  <label class="badge-toggle-chip" title="Uygulamada resmi Geliştirici/Yönetici rozeti gösterir">
+                    <input id="adminBadgeDevCheck" type="checkbox" checked />
+                    <span>🛠️ Yönetici</span>
+                  </label>
+                  <label class="badge-toggle-chip" title="Uygulamada altın VIP tacı gösterir">
+                    <input id="adminBadgeCrownCheck" type="checkbox" checked />
+                    <span>👑 Kraliyet Tacı</span>
+                  </label>
+                  <label class="badge-toggle-chip" title="Uygulamada Altın Liderlik rozeti gösterir">
+                    <input id="adminBadgeGoldCheck" type="checkbox" />
+                    <span>🏆 Gold</span>
+                  </label>
+                  <label class="badge-toggle-chip" title="Resmi Falkız logosunu profil fotoğrafı olarak gösterir">
+                    <input id="adminUseLogoCheck" type="checkbox" checked />
+                    <span>🖼️ Resmi Logo</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Quick Broadcast / Greeting Chips -->
+              <div class="canned-row">
+                <button type="button" class="canned-chip" data-chat-canned="Selamlar herkese! ☕✨ Sohbete hoş geldiniz, fallarınız bol kısmetli olsun 🔮">👋 Hoş Geldiniz</button>
+                <button type="button" class="canned-chip" data-chat-canned="Sohbette aktif olanlara birazdan sürpriz promosyon kodu geliyor, takipte kalın! 🎁✨">🎁 Sürpriz Kod Duyurusu</button>
+                <button type="button" class="canned-chip" data-chat-canned="Falkız yenilendi! ✨ Yeni Sihirli Lamba ve çok daha hızlı kahve falı için Play Store'dan güncellemeyi unutmayın 🔮">🚀 Güncelleme Duyurusu</button>
+                <button type="button" class="canned-chip" data-chat-canned="Arkadaşlar lütfen genel sohbette nezaket ve saygı kurallarına özen gösterelim 🙏💛">🙏 Sohbet Kuralı</button>
+              </div>
+
+              <!-- Reply Quote Banner (hidden unless replying to a user message) -->
+              <div id="adminChatReplyBanner" class="admin-reply-banner hidden">
+                <div class="admin-reply-info">
+                  <span class="reply-arrow">↩</span>
+                  <div>
+                    <strong id="adminReplyTargetName">—</strong>
+                    <div id="adminReplyTargetText" class="tiny-muted">—</div>
+                  </div>
+                </div>
+                <button id="cancelAdminChatReplyBtn" class="btn btn-ghost btn-xs" type="button">✕ İptal</button>
+              </div>
+
+              <!-- Message Input & Submit -->
+              <form id="adminChatSendForm" class="admin-chat-input-row">
+                <div class="chat-textarea-wrap">
+                  <textarea
+                    id="adminChatMessageInput"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="Uygulamadaki canlı sohbete mesaj yazın… (Göndermek için Enter, alt satır için Shift+Enter)"
+                    required
+                  ></textarea>
+                  <span id="adminChatCharCount" class="chat-char-counter">0 / 500</span>
+                </div>
+                <button id="adminChatSubmitBtn" type="submit" class="btn btn-gold admin-send-btn">
+                  👑 Sohbete Gönder
+                </button>
+              </form>
+            </div>
           </div>
         </section>
 
@@ -630,6 +721,6 @@
   <!-- TOAST CONTAINER -->
   <div id="toastStack" class="toast-stack"></div>
 
-  <script type="module" src="app.js?v=2.1"></script>
+  <script type="module" src="app.js?v=2.2"></script>
 </body>
 </html>

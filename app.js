@@ -30,6 +30,8 @@ import {
   onSnapshot,
   runTransaction,
   increment,
+  arrayUnion,
+  arrayRemove,
   serverTimestamp,
   Timestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -45,6 +47,10 @@ const firebaseConfig = {
 
 const ADMIN_EMAIL_DOMAIN = "falkiz-admin.local";
 const DEDICATED_ADMIN_UID = "J3tuyomABfOJ8cBfYI5yYosrGLy2";
+const OFFICIAL_ADMIN_AVATAR_URL =
+  "https://firebasestorage.googleapis.com/v0/b/falciteyzefirebase.firebasestorage.app/o/profile_images%2Ffalkiz_official_admin.webp?alt=media&token=falkiz-official-admin-avatar-v2";
+const CHAT_REACTION_EMOJIS = ["🔮", "✨", "❤️", "🧿"];
+const ADMIN_CHAT_PREFS_KEY = "falkiz_admin_chat_prefs_v1";
 const DEFAULT_AVATAR =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(
@@ -413,8 +419,11 @@ function switchSection(sectionKey) {
     sec.classList.toggle("hidden", sec.id !== `section-${sectionKey}`);
   });
 
-  if (sectionKey === "chat" && !unsubGlobalChat) {
-    startGlobalChatListener();
+  if (sectionKey === "chat") {
+    if (!unsubGlobalChat) {
+      startGlobalChatListener();
+    }
+    requestAnimationFrame(() => scrollChatToBottom(true));
   }
   if (sectionKey === "promos") {
     loadPromoCodesAndGlobalPurchases();
@@ -463,6 +472,7 @@ function cleanupRealtimeListeners() {
 function bootAdminWorkspace() {
   startLiveFortunesRealtime();
   startSupportTicketsRealtime();
+  startGlobalChatListener();
   refreshDashboardStats();
   loadUserDirectory("active");
 }
@@ -764,7 +774,7 @@ function renderLiveFortunesSection() {
           targetOwnerId: f.ownerId || "",
           fortuneId: f.id,
           deltaJeton: refundAmt,
-          adminEmail: currentUser?.email || "",
+          adminEmail: currentAdminUser?.email || "",
           createdAt: Date.now()
         });
         showToast(`+${refundAmt} Jeton iade edildi ve askıdaki kayıt temizlendi.`);
@@ -2269,54 +2279,426 @@ $("ticketReplyForm").addEventListener("submit", async (e) => {
 });
 
 // ============================================================================
-// 8. GLOBAL CHAT LIVE MODERATION
+// 8. GLOBAL CHAT LIVE ROOM & ADMIN BROADCASTER
 // ============================================================================
+let globalChatMessagesCache = [];
+let activeChatReplyTarget = null;
+let isInitialGlobalChatLoad = true;
+let isSendingAdminChat = false;
+
+function loadAdminChatPrefs() {
+  try {
+    const raw = localStorage.getItem(ADMIN_CHAT_PREFS_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p.senderName) $("adminChatSenderNameInput").value = String(p.senderName).slice(0, 32);
+    if (typeof p.badgeDev === "boolean") $("adminBadgeDevCheck").checked = p.badgeDev;
+    if (typeof p.badgeCrown === "boolean") $("adminBadgeCrownCheck").checked = p.badgeCrown;
+    if (typeof p.badgeGold === "boolean") $("adminBadgeGoldCheck").checked = p.badgeGold;
+    if (typeof p.useLogo === "boolean") $("adminUseLogoCheck").checked = p.useLogo;
+  } catch (_) {}
+  syncAdminChatAvatarPreview();
+}
+
+function saveAdminChatPrefs() {
+  try {
+    const prefs = {
+      senderName: $("adminChatSenderNameInput").value.trim() || "Falkız Yönetici",
+      badgeDev: $("adminBadgeDevCheck").checked,
+      badgeCrown: $("adminBadgeCrownCheck").checked,
+      badgeGold: $("adminBadgeGoldCheck").checked,
+      useLogo: $("adminUseLogoCheck").checked
+    };
+    localStorage.setItem(ADMIN_CHAT_PREFS_KEY, JSON.stringify(prefs));
+  } catch (_) {}
+  syncAdminChatAvatarPreview();
+}
+
+function syncAdminChatAvatarPreview() {
+  const img = $("adminChatAvatarPreview");
+  if (!img) return;
+  img.src = $("adminUseLogoCheck")?.checked ? OFFICIAL_ADMIN_AVATAR_URL : DEFAULT_AVATAR;
+}
+
+loadAdminChatPrefs();
+
+["adminChatSenderNameInput", "adminBadgeDevCheck", "adminBadgeCrownCheck", "adminBadgeGoldCheck", "adminUseLogoCheck"].forEach((id) => {
+  const el = $(id);
+  if (el) el.addEventListener("change", saveAdminChatPrefs);
+});
+
+document.querySelectorAll("[data-name-preset]").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    $("adminChatSenderNameInput").value = chip.dataset.namePreset;
+    saveAdminChatPrefs();
+  });
+});
+
+document.querySelectorAll("[data-chat-canned]").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const input = $("adminChatMessageInput");
+    input.value = chip.dataset.chatCanned;
+    updateAdminChatCharCounter();
+    input.focus();
+  });
+});
+
+function updateAdminChatCharCounter() {
+  const input = $("adminChatMessageInput");
+  const counter = $("adminChatCharCount");
+  if (input && counter) {
+    counter.textContent = `${input.value.length} / 500`;
+  }
+}
+
+$("adminChatMessageInput")?.addEventListener("input", updateAdminChatCharCounter);
+$("adminChatMessageInput")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    $("adminChatSendForm")?.requestSubmit();
+  }
+});
+
+function setAdminChatReply(msg) {
+  if (!msg) {
+    activeChatReplyTarget = null;
+    $("adminChatReplyBanner")?.classList.add("hidden");
+    return;
+  }
+  const isFortune = String(msg.type || "").toUpperCase() === "FORTUNE" || Boolean(msg.fortuneText);
+  const preview = isFortune
+    ? "🔮 Fal Paylaşımı"
+    : String(msg.messageText || "").trim().slice(0, 90);
+
+  activeChatReplyTarget = {
+    messageId: msg.id,
+    senderName: msg.senderName || "Kullanıcı",
+    previewText: preview
+  };
+  $("adminReplyTargetName").textContent = `${activeChatReplyTarget.senderName} kullanıcısına yanıt veriliyor`;
+  $("adminReplyTargetText").textContent = preview || "—";
+  $("adminChatReplyBanner").classList.remove("hidden");
+  $("adminChatMessageInput")?.focus();
+}
+
+$("cancelAdminChatReplyBtn")?.addEventListener("click", () => setAdminChatReply(null));
+
+function isChatNearBottom() {
+  const wrap = $("globalChatAdminList");
+  if (!wrap) return true;
+  return wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight <= 110;
+}
+
+function scrollChatToBottom(force = false) {
+  const wrap = $("globalChatAdminList");
+  if (!wrap) return;
+  if (force || isChatNearBottom()) {
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+}
+
+$("scrollChatBottomBtn")?.addEventListener("click", () => scrollChatToBottom(true));
+$("globalChatSearchInput")?.addEventListener("input", () => renderGlobalChatStream(false));
+
+function formatChatBadgesHtml(m, isAdminMsg) {
+  const badges = Array.isArray(m.senderBadges) ? m.senderBadges : [];
+  const tags = [];
+  if (isAdminMsg || badges.includes("developer") || badges.includes("admin")) {
+    tags.push(`<span class="gchat-badge-tag">🛠️ Yönetici</span>`);
+  }
+  if (badges.includes("premium")) {
+    tags.push(`<span class="gchat-badge-tag">👑 VIP</span>`);
+  }
+  if (badges.includes("gold") || badges.includes("leaderboard_gold")) {
+    tags.push(`<span class="gchat-badge-tag">🏆 Gold</span>`);
+  }
+  return tags.join("");
+}
+
 function startGlobalChatListener() {
-  const q = query(collection(db, "global_chat"), orderBy("timestamp", "desc"), limit(60));
-  unsubGlobalChat = onSnapshot(q, (snap) => {
-    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    const wrap = $("globalChatAdminList");
-    if (!list.length) {
-      wrap.innerHTML = `<div class="tiny-muted">Sohbet mesajı bulunamadı.</div>`;
-      return;
+  if (unsubGlobalChat) unsubGlobalChat();
+  isInitialGlobalChatLoad = true;
+
+  const q = query(collection(db, "global_chat"), orderBy("timestamp", "desc"), limit(80));
+  unsubGlobalChat = onSnapshot(
+    q,
+    (snap) => {
+      const wasNearBottom = isChatNearBottom();
+      // Sort chronologically oldest -> newest so latest messages appear right above the composer
+      globalChatMessagesCache = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => toMs(a.timestamp || a.clientTimestamp) - toMs(b.timestamp || b.clientTimestamp));
+
+      renderGlobalChatStream(isInitialGlobalChatLoad || wasNearBottom);
+      isInitialGlobalChatLoad = false;
+    },
+    (err) => {
+      console.error("Global chat listener error:", err);
+      const wrap = $("globalChatAdminList");
+      if (wrap) wrap.innerHTML = `<div class="tiny-muted">Genel sohbet akışı alınamadı.</div>`;
     }
+  );
+}
 
-    wrap.innerHTML = list
-      .map(
-        (m) => `
-        <div class="chat-mod-row">
-          <div>
-            <div class="row-wrap">
-              <strong>${escapeHtml(m.senderName || "Anonim")}</strong>
-              <code class="tiny-muted" style="cursor:pointer" data-chat-uid="${escapeHtml(m.senderId || "")}">${escapeHtml(m.senderId || "")}</code>
-              <span class="tiny-muted">${formatRelative(m.timestamp || m.clientTimestamp)} · ${formatTs(m.timestamp || m.clientTimestamp)}</span>
+function renderGlobalChatStream(shouldScrollBottom = false) {
+  const wrap = $("globalChatAdminList");
+  if (!wrap) return;
+
+  const q = ($("globalChatSearchInput")?.value || "").trim().toLocaleLowerCase("tr-TR");
+  const filtered = globalChatMessagesCache.filter((m) => {
+    if (!q) return true;
+    const hay = `${m.senderName || ""} ${m.senderId || ""} ${m.messageText || ""} ${m.fortuneText || ""}`.toLocaleLowerCase("tr-TR");
+    return hay.includes(q);
+  });
+
+  const pill = $("globalChatCountPill");
+  if (pill) pill.textContent = `${filtered.length} Mesaj (Canlı)`;
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<div class="tiny-muted" style="padding:18px;text-align:center;">Eşleşen sohbet mesajı bulunamadı.</div>`;
+    return;
+  }
+
+  const myUid = currentAdminUser?.uid || DEDICATED_ADMIN_UID;
+
+  wrap.innerHTML = filtered
+    .map((m, idx) => {
+      const badges = Array.isArray(m.senderBadges) ? m.senderBadges : [];
+      const isAdminMsg =
+        m.isAdminBroadcast === true ||
+        m.senderId === DEDICATED_ADMIN_UID ||
+        m.senderId === myUid ||
+        badges.includes("developer") ||
+        badges.includes("admin");
+
+      const avatarSrc = m.senderProfileUrl || (isAdminMsg ? OFFICIAL_ADMIN_AVATAR_URL : DEFAULT_AVATAR);
+      const isFortune = String(m.type || "").toUpperCase() === "FORTUNE" || Boolean(m.fortuneText);
+
+      const quoteHtml =
+        m.replyToName && m.replyToText
+          ? `<div class="gchat-reply-quote">↩ <strong>${escapeHtml(m.replyToName)}:</strong> ${escapeHtml(m.replyToText)}</div>`
+          : "";
+
+      let contentHtml = "";
+      if (isFortune) {
+        const fType = fortuneTypeLabel(m.fortuneType || "kahve");
+        const fSnippet = String(m.fortuneText || "").replace(/[#*_`]/g, "").trim().slice(0, 140);
+        contentHtml = `
+          <div class="gchat-fortune-box">
+            ${m.fortuneImageUrl ? `<img src="${escapeHtml(m.fortuneImageUrl)}" alt="Fal" loading="lazy" />` : ""}
+            <div style="min-width:0;flex:1;">
+              <div class="row-wrap">
+                <span class="pill pill-gold">${escapeHtml(fType)} Paylaşımı</span>
+                <button class="btn btn-dark btn-xs" data-open-chat-fortune="${idx}" type="button">📖 Falı Oku</button>
+              </div>
+              <div class="tiny-muted mt-xs">${escapeHtml(fSnippet ? `${fSnippet}…` : "Paylaşılan fal kartı")}</div>
             </div>
-            <div class="mt-xs">${escapeHtml(m.messageText || (m.sharedFortune ? "🔮 [Paylaşılan Fal]" : ""))}</div>
-          </div>
-          <div class="row-wrap">
-            <button class="btn btn-dark btn-xs" data-inspect-chat-uid="${escapeHtml(m.senderId || "")}" type="button">🔍 Kullanıcı</button>
-            <button class="btn btn-danger-soft btn-xs" data-del-chat="${escapeHtml(m.id)}" type="button">🗑️ Sil</button>
-          </div>
-        </div>`
-      )
-      .join("");
+          </div>`;
+      } else {
+        contentHtml = `<div class="gchat-text">${escapeHtml(m.messageText || "")}</div>`;
+      }
 
-    wrap.querySelectorAll("[data-inspect-chat-uid]").forEach((b) => {
-      b.addEventListener("click", () => {
-        if (!b.dataset.inspectChatUid) return;
-        switchSection("users");
-        selectUser(b.dataset.inspectChatUid);
-      });
-    });
+      const reactionsObj = m.reactions && typeof m.reactions === "object" ? m.reactions : {};
+      const reactionsHtml = CHAT_REACTION_EMOJIS.map((emoji) => {
+        const arr = Array.isArray(reactionsObj[emoji]) ? reactionsObj[emoji] : [];
+        const reacted = arr.includes(myUid);
+        return `<button type="button" class="gchat-react-btn${reacted ? " active" : ""}" data-react-id="${escapeHtml(m.id)}" data-react-emoji="${emoji}" data-reacted="${reacted}">${emoji}${arr.length > 0 ? ` ${arr.length}` : ""}</button>`;
+      }).join("");
 
-    wrap.querySelectorAll("[data-del-chat]").forEach((b) => {
-      b.addEventListener("click", async () => {
-        await deleteDoc(doc(db, "global_chat", b.dataset.delChat));
-        showToast("Sohbet mesajı silindi 🗑️");
-      });
+      return `
+        <div class="gchat-item${isAdminMsg ? " is-admin-msg" : ""}">
+          <div class="gchat-left">
+            <img class="gchat-avatar" src="${escapeHtml(avatarSrc)}" alt="Avatar" loading="lazy" />
+            <div class="gchat-body">
+              <div class="gchat-meta-row">
+                <span class="gchat-sender">${escapeHtml(m.senderName || "Anonim")}</span>
+                ${formatChatBadgesHtml(m, isAdminMsg)}
+                <code class="tiny-muted" style="cursor:pointer" title="Owner ID kopyala" data-copy-chat-uid="${escapeHtml(m.senderId || "")}">${escapeHtml((m.senderId || "—").slice(0, 12))}…</code>
+                <span class="tiny-muted" title="${escapeHtml(formatTs(m.timestamp || m.clientTimestamp))}">${escapeHtml(formatRelative(m.timestamp || m.clientTimestamp))} · ${escapeHtml(formatTs(m.timestamp || m.clientTimestamp))}</span>
+              </div>
+              ${quoteHtml}
+              ${contentHtml}
+              <div class="gchat-reactions-row">${reactionsHtml}</div>
+            </div>
+          </div>
+
+          <div class="gchat-actions">
+            <button class="btn btn-gold btn-xs" data-reply-chat="${idx}" type="button" title="Bu mesaja yanıt ver">↩ Yanıtla</button>
+            ${
+              !isAdminMsg && m.senderId
+                ? `<button class="btn btn-dark btn-xs" data-gift-chat-uid="${escapeHtml(m.senderId)}" data-gift-chat-name="${escapeHtml(m.senderName || "Kullanıcı")}" type="button" title="Kullanıcıya +10 sürpriz jeton gönder">🪙 +10</button>
+                   <button class="btn btn-dark btn-xs" data-inspect-chat-uid="${escapeHtml(m.senderId)}" type="button" title="Kullanıcı profilini incele">🔍 Profil</button>
+                   <button class="btn btn-danger-soft btn-xs" data-ban-chat-uid="${escapeHtml(m.senderId)}" data-ban-chat-name="${escapeHtml(m.senderName || "Kullanıcı")}" type="button" title="Sohbetten yasakla / engeli kaldır">🚫 Engel</button>`
+                : ""
+            }
+            <button class="btn btn-danger-soft btn-xs" data-del-chat="${escapeHtml(m.id)}" type="button" title="Mesajı sil">🗑️ Sil</button>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  wrap.querySelectorAll(".gchat-avatar").forEach((img) => {
+    img.addEventListener("error", () => {
+      if (img.src !== DEFAULT_AVATAR) img.src = DEFAULT_AVATAR;
     });
   });
+
+  wrap.querySelectorAll("[data-copy-chat-uid]").forEach((el) => {
+    el.addEventListener("click", () => {
+      if (el.dataset.copyChatUid) copyText(el.dataset.copyChatUid, "Owner ID kopyalandı");
+    });
+  });
+
+  wrap.querySelectorAll("[data-reply-chat]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = filtered[Number(btn.dataset.replyChat)];
+      if (target) setAdminChatReply(target);
+    });
+  });
+
+  wrap.querySelectorAll("[data-open-chat-fortune]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const m = filtered[Number(btn.dataset.openChatFortune)];
+      if (!m) return;
+      const imgHtml = m.fortuneImageUrl
+        ? `<div style="text-align:center;margin-bottom:12px;"><img src="${escapeHtml(m.fortuneImageUrl)}" style="max-width:260px;border-radius:14px;" /></div>`
+        : "";
+      openDetailModal(
+        `${m.senderName || "Kullanıcı"} — Paylaşılan ${fortuneTypeLabel(m.fortuneType || "kahve")}`,
+        `${imgHtml}<div>${escapeHtml(m.fortuneText || "Yorum metni bulunmuyor.")}</div>`
+      );
+    });
+  });
+
+  wrap.querySelectorAll("[data-react-id]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!currentAdminUser?.uid) return;
+      const msgId = btn.dataset.reactId;
+      const emoji = btn.dataset.reactEmoji;
+      const currentlyReacted = btn.dataset.reacted === "true";
+      try {
+        await updateDoc(doc(db, "global_chat", msgId), {
+          [`reactions.${emoji}`]: currentlyReacted ? arrayRemove(currentAdminUser.uid) : arrayUnion(currentAdminUser.uid)
+        });
+      } catch (err) {
+        showToast("Tepki güncellenemedi: " + (err.message || ""), true);
+      }
+    });
+  });
+
+  wrap.querySelectorAll("[data-gift-chat-uid]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const uid = btn.dataset.giftChatUid;
+      const uName = btn.dataset.giftChatName || "Kullanıcı";
+      if (!uid) return;
+      if (!window.confirm(`${uName} kullanıcısına +10 sürpriz jeton tanımlayıp bildirim göndermek istiyor musunuz?`)) return;
+      await applyJetonChange(
+        uid,
+        "delta",
+        10,
+        "Genel sohbetteki güzel enerjin için +10 sürpriz jeton hediyen! ✨",
+        true
+      );
+    });
+  });
+
+  wrap.querySelectorAll("[data-inspect-chat-uid]").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (!b.dataset.inspectChatUid) return;
+      switchSection("users");
+      selectUser(b.dataset.inspectChatUid);
+    });
+  });
+
+  wrap.querySelectorAll("[data-ban-chat-uid]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const uid = b.dataset.banChatUid;
+      const uName = b.dataset.banChatName || uid;
+      if (!uid) return;
+      const snap = await getDoc(doc(db, "owners", uid));
+      const curBanned = snap.exists() && snap.data()?.isBanned === true;
+      const ok = window.confirm(
+        curBanned
+          ? `${uName} kullanıcısının genel sohbet yasağını KALDIRMAK istiyor musunuz?`
+          : `${uName} kullanıcısını genel sohbetten YASAKLAMAK istiyor musunuz?`
+      );
+      if (!ok) return;
+      await setDoc(doc(db, "owners", uid), { ownerId: uid, isBanned: !curBanned }, { merge: true });
+      showToast(!curBanned ? `${uName} sohbetten yasaklandı 🚫` : `${uName} sohbet engeli kaldırıldı ✅`);
+    });
+  });
+
+  wrap.querySelectorAll("[data-del-chat]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      await deleteDoc(doc(db, "global_chat", b.dataset.delChat));
+      showToast("Sohbet mesajı silindi 🗑️");
+    });
+  });
+
+  if (shouldScrollBottom) {
+    requestAnimationFrame(() => scrollChatToBottom(true));
+  }
 }
+
+$("adminChatSendForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (isSendingAdminChat || !currentAdminUser?.uid) return;
+
+  const input = $("adminChatMessageInput");
+  const text = (input?.value || "").trim();
+  if (!text) return;
+
+  const senderName = ($("adminChatSenderNameInput")?.value || "").trim() || "Falkız Yönetici";
+  const badges = [];
+  if ($("adminBadgeDevCheck")?.checked) badges.push("developer");
+  if ($("adminBadgeCrownCheck")?.checked) badges.push("premium");
+  if ($("adminBadgeGoldCheck")?.checked) badges.push("gold");
+
+  const useLogo = $("adminUseLogoCheck")?.checked !== false;
+  const submitBtn = $("adminChatSubmitBtn");
+
+  isSendingAdminChat = true;
+  if (submitBtn) submitBtn.disabled = true;
+  saveAdminChatPrefs();
+
+  try {
+    const nowMs = Date.now();
+    const payload = {
+      senderId: currentAdminUser.uid,
+      senderName,
+      senderProfileUrl: useLogo ? OFFICIAL_ADMIN_AVATAR_URL : null,
+      senderBadges: badges,
+      messageText: text,
+      type: "TEXT",
+      timestamp: serverTimestamp(),
+      clientTimestamp: nowMs,
+      replyToName: activeChatReplyTarget ? activeChatReplyTarget.senderName : null,
+      replyToText: activeChatReplyTarget ? activeChatReplyTarget.previewText : null,
+      isAdminBroadcast: true
+    };
+
+    await addDoc(collection(db, "global_chat"), payload);
+    await addDoc(collection(db, "admin_logs"), {
+      targetOwnerId: "global_chat",
+      action: `Genel Sohbet (${senderName})`,
+      note: text.slice(0, 140),
+      adminEmail: currentAdminUser.email || "admin",
+      createdAtMs: nowMs
+    }).catch(() => {});
+
+    input.value = "";
+    updateAdminChatCharCounter();
+    setAdminChatReply(null);
+    scrollChatToBottom(true);
+    showToast("Mesajınız canlı sohbete yönetici olarak gönderildi! 👑");
+  } catch (err) {
+    showToast("Mesaj gönderilemedi: " + (err.message || ""), true);
+  } finally {
+    isSendingAdminChat = false;
+    if (submitBtn) submitBtn.disabled = false;
+    input?.focus();
+  }
+});
 
 // ============================================================================
 // 9. PROMO CODES & GLOBAL PURCHASES
